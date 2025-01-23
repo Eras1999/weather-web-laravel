@@ -9,24 +9,34 @@ class WeatherController extends Controller
 {
     public function index()
     {
-        $cities = ['Colombo', 'Kandy', 'Galle', 'Jaffna', 'Matara', 'Negombo']; // List of Sri Lankan cities
+        $cities = ['Colombo', 'Kandy', 'Galle', 'Jaffna', 'Matara']; // Add more cities as needed
         return view('weather.index', compact('cities'));
     }
 
     public function fetchWeather(Request $request)
     {
-        $city = $request->input('city');
+        $city = $request->city;
         $apiKey = env('WEATHER_API_KEY');
-        $url = env('WEATHER_API_URL') . "?q={$city}&appid={$apiKey}&units=metric";
+        $currentWeatherUrl = env('WEATHER_API_URL') . "?q={$city}&appid={$apiKey}&units=metric";
+        $forecastUrl = env('WEATHER_API_URL') . "/forecast?q={$city}&appid={$apiKey}&units=metric";
 
-        $response = Http::get($url);
+        // Fetch current weather
+        $currentWeather = Http::get($currentWeatherUrl)->json();
 
-        if ($response->successful()) {
-            $data = $response->json();
-            return view('weather.result', compact('city', 'data'));
-        } else {
-            return back()->with('error', 'Unable to fetch weather data.');
+        // Fetch forecast data (5 days)
+        $forecastData = Http::get($forecastUrl)->json();
+
+        if ($currentWeather['cod'] != 200) {
+            return redirect()->route('weather.index')->with('error', 'City not found!');
         }
+
+        // Check if forecast data is available and contains the "list" key
+        $forecastList = isset($forecastData['list']) ? $forecastData['list'] : [];
+
+        return view('weather.result', [
+            'city' => $city,
+            'currentWeather' => $currentWeather,
+            'forecastData' => $forecastList
+        ]);
     }
 }
-
